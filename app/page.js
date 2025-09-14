@@ -27,9 +27,9 @@ export default function HomePage() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-green-600 to-blue-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+      {/* Hero Section - FIXED: Full screen height minus navbar */}
+      <section className="relative bg-gradient-to-r from-green-600 to-blue-600 text-white h-screen flex items-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
               Smart Crop Advisory System
@@ -38,14 +38,21 @@ export default function HomePage() {
               Empowering small and marginal farmers with AI-powered agricultural insights for better crop yields and sustainable farming
             </p>
             <div className="space-x-4">
-              <Link href="/get-started" className="bg-white text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition duration-300">
+              <Link href="/dashboard" className="bg-white text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition duration-300 inline-block">
                 Get Started
               </Link>
-              <Link href="/learn-more" className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-green-600 transition duration-300">
+              <Link href="/farming-guide" className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-green-600 transition duration-300 inline-block">
                 Learn More
               </Link>
             </div>
           </div>
+        </div>
+        
+        {/* Optional: Scroll down indicator */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+          </svg>
         </div>
       </section>
 
@@ -73,7 +80,7 @@ export default function HomePage() {
               <p className="text-gray-700 mb-6">
                 AI-powered analysis of soil conditions, climate data, and market trends to recommend the most suitable crops for your land.
               </p>
-              <Link href="/crop-recommendation" className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition duration-300">
+              <Link href="/crop-recommendation" className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition duration-300 inline-block">
                 Explore Crops
               </Link>
             </div>
@@ -90,7 +97,7 @@ export default function HomePage() {
               <p className="text-gray-700 mb-6">
                 Upload plant images for instant disease detection using advanced computer vision and machine learning models.
               </p>
-              <Link href="/disease-detection" className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
+              <Link href="/disease-detection" className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition duration-300 inline-block">
                 Detect Disease
               </Link>
             </div>
@@ -106,7 +113,7 @@ export default function HomePage() {
               <p className="text-gray-700 mb-6">
                 Get personalized fertilizer recommendations based on soil analysis, crop type, and growth stage requirements.
               </p>
-              <Link href="/fertilizer" className="bg-yellow-500 text-white px-6 py-2 rounded-lg hover:bg-yellow-600 transition duration-300">
+              <Link href="/fertilizer" className="bg-yellow-500 text-white px-6 py-2 rounded-lg hover:bg-yellow-600 transition duration-300 inline-block">
                 Get Recommendations
               </Link>
             </div>
@@ -122,7 +129,7 @@ export default function HomePage() {
               <p className="text-gray-700 mb-6">
                 Access accurate weather predictions and alerts to plan your farming activities and protect your crops.
               </p>
-              <Link href="/weather" className="bg-purple-500 text-white px-6 py-2 rounded-lg hover:bg-purple-600 transition duration-300">
+              <Link href="/weather" className="bg-purple-500 text-white px-6 py-2 rounded-lg hover:bg-purple-600 transition duration-300 inline-block">
                 View Weather
               </Link>
             </div>
@@ -138,7 +145,7 @@ export default function HomePage() {
               <p className="text-gray-700 mb-6">
                 Comprehensive farming knowledge base with best practices, seasonal calendars, and expert agricultural advice.
               </p>
-              <Link href="/farming-guide" className="bg-indigo-500 text-white px-6 py-2 rounded-lg hover:bg-indigo-600 transition duration-300">
+              <Link href="/farming-guide" className="bg-indigo-500 text-white px-6 py-2 rounded-lg hover:bg-indigo-600 transition duration-300 inline-block">
                 Access Guide
               </Link>
             </div>
@@ -154,7 +161,7 @@ export default function HomePage() {
               <p className="text-gray-700 mb-6">
                 Intuitive design optimized for farmers with multilingual support and easy-to-use mobile interface.
               </p>
-              <Link href="/dashboard" className="bg-pink-500 text-white px-6 py-2 rounded-lg hover:bg-pink-600 transition duration-300">
+              <Link href="/dashboard" className="bg-pink-500 text-white px-6 py-2 rounded-lg hover:bg-pink-600 transition duration-300 inline-block">
                 View Dashboard
               </Link>
             </div>
