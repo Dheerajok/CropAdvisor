@@ -166,7 +166,7 @@ export default function Dashboard() {
           {/* Weather Card */}
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Today's Weather</h2>
+              <h2 className="text-xl font-bold text-gray-900">{"Today's Weather"}</h2>
               <div className="text-3xl">🌤️</div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -189,7 +189,7 @@ export default function Dashboard() {
             </div>
             <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
               <p className="text-sm text-yellow-800">
-                <span className="font-semibold">Today's Forecast:</span> {weatherData.condition} - Good conditions for field operations
+                <span className="font-semibold">{"Today's Forecast:"}</span> {weatherData.condition} - Good conditions for field operations
               </p>
             </div>
           </div>
@@ -337,7 +337,7 @@ export default function Dashboard() {
         <div className="mt-8 bg-gradient-to-r from-green-100 to-blue-100 rounded-2xl p-6">
           <div className="flex items-center mb-4">
             <div className="text-2xl mr-3">💡</div>
-            <h2 className="text-xl font-bold text-gray-900">Today's Farming Tip</h2>
+            <h2 className="text-xl font-bold text-gray-900">{"Today's Farming Tip"}</h2>
           </div>
           <div className="bg-white rounded-xl p-4">
             <p className="text-gray-700">

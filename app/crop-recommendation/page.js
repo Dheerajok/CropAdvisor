@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function CropRecommendation() {
@@ -13,14 +13,8 @@ export default function CropRecommendation() {
     marketData: { season: 'Kharif', farm_size: '', budget: '' }
   });
 
-  // Auto-fetch weather data when location is provided
-  useEffect(() => {
-    if (formData.location.latitude && formData.location.longitude) {
-      fetchWeatherData();
-    }
-  }, [formData.location.latitude, formData.location.longitude]);
-
-  const fetchWeatherData = async () => {
+  // Memoize fetchWeatherData function to prevent unnecessary re-renders
+  const fetchWeatherData = useCallback(async () => {
     try {
       const response = await fetch(
         `/api/weather/current?lat=${formData.location.latitude}&lon=${formData.location.longitude}`
@@ -45,7 +39,14 @@ export default function CropRecommendation() {
     } catch (error) {
       console.error('Weather fetch error:', error);
     }
-  };
+  }, [formData.location.latitude, formData.location.longitude]);
+
+  // Auto-fetch weather data when location is provided
+  useEffect(() => {
+    if (formData.location.latitude && formData.location.longitude) {
+      fetchWeatherData();
+    }
+  }, [formData.location.latitude, formData.location.longitude, fetchWeatherData]);
 
   const handleInputChange = (section, field, value) => {
     setFormData(prev => ({
