@@ -11,11 +11,22 @@ export default function DiseaseDetection() {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef(null);
   const [analysisHistory, setAnalysisHistory] = useState([]);
+  const [error, setError] = useState('');
+  
+  // Flask API configuration
+  const API_BASE_URL = 'http://localhost:5001'; // Your Flask API URL
 
   // Handle file selection
   const handleFileSelect = (file) => {
     if (file && file.type.startsWith('image/')) {
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        setError('File size too large! Please choose an image smaller than 10MB.');
+        return;
+      }
+
       setSelectedImage(file);
+      setError('');
       
       // Create image preview
       const reader = new FileReader();
@@ -27,7 +38,7 @@ export default function DiseaseDetection() {
       // Reset previous results
       setResults(null);
     } else {
-      alert('Please select a valid image file (JPG, PNG, etc.)');
+      setError('Please select a valid image file (JPG, PNG, etc.)');
     }
   };
 
@@ -58,122 +69,186 @@ export default function DiseaseDetection() {
     }
   };
 
+  // Main analysis function - integrated with your Flask API
   const handleAnalyze = async () => {
     if (!selectedImage) {
-      alert('Please select an image first');
+      setError('Please select an image first');
       return;
     }
 
     setIsAnalyzing(true);
+    setError('');
     
     try {
+      // Create form data for your Flask API
       const formData = new FormData();
       formData.append('image', selectedImage);
-      formData.append('userId', 'user_' + Date.now());
 
-      const response = await fetch('/api/disease/detect', {
+      console.log('Sending request to Flask API...');
+      
+      // Call your Flask API
+      const response = await fetch(`${API_BASE_URL}/api/predict`, {
         method: 'POST',
-        body: formData
+        body: formData,
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        setResults(result.data);
-        
-        // Add to history
-        const historyItem = {
-          id: Date.now(),
-          image: imagePreview,
-          result: result.data,
-          timestamp: new Date().toLocaleString()
-        };
-        setAnalysisHistory(prev => [historyItem, ...prev.slice(0, 4)]); // Keep last 5
-      } else {
-        // Use mock data if API fails
-        const mockResult = generateMockResults();
-        setResults(mockResult);
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
       }
+
+      const apiResult = await response.json();
+      
+      if (!apiResult.success) {
+        throw new Error(apiResult.error || 'Prediction failed');
+      }
+
+      console.log('API Response:', apiResult);
+
+      // Transform your Flask API response to match the UI format
+      const transformedResult = transformFlaskResponse(apiResult);
+      setResults(transformedResult);
+      
+      // Add to history
+      const historyItem = {
+        id: Date.now(),
+        image: imagePreview,
+        result: transformedResult,
+        timestamp: new Date().toLocaleString()
+      };
+      setAnalysisHistory(prev => [historyItem, ...prev.slice(0, 4)]); // Keep last 5
+
     } catch (error) {
       console.error('Disease detection error:', error);
-      // Use mock data as fallback
-      const mockResult = generateMockResults();
-      setResults(mockResult);
+      setError(`Analysis failed: ${error.message}`);
+      
+      // You can optionally show a fallback message or mock result
+      // const mockResult = generateMockResults();
+      // setResults(mockResult);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  // Mock results for demonstration
-  const generateMockResults = () => {
-    const diseases = [
-      {
-        disease_name: "Late Blight",
-        confidence: 92,
-        severity: "High",
-        crop_affected: "Tomato",
-        description: "Late blight is a destructive disease caused by the fungus Phytophthora infestans. It affects leaves, stems, and fruits.",
-        symptoms: [
-          "Dark brown to black lesions on leaves",
-          "White fungal growth on leaf undersides",
-          "Rapid leaf death and defoliation",
-          "Brown lesions on stems and fruits"
-        ],
-        treatment: [
-          "Apply copper-based fungicides immediately",
-          "Remove and destroy infected plant parts",
-          "Improve air circulation around plants",
-          "Avoid overhead watering"
-        ],
-        prevention: [
-          "Use resistant varieties",
-          "Ensure proper plant spacing",
-          "Apply preventive fungicide sprays",
-          "Monitor weather conditions"
-        ],
-        recommended_products: [
-          { name: "Copper Oxychloride", dosage: "2g/L", price: "₹120/250g" },
-          { name: "Mancozeb 75% WP", dosage: "2.5g/L", price: "₹180/500g" },
-          { name: "Metalaxyl + Mancozeb", dosage: "2g/L", price: "₹250/250g" }
-        ]
-      },
-      {
-        disease_name: "Bacterial Leaf Spot",
-        confidence: 78,
-        severity: "Medium",
-        crop_affected: "Tomato",
-        description: "Bacterial leaf spot is caused by Xanthomonas species and affects many vegetable crops.",
-        symptoms: [
-          "Small, dark spots with yellow halos",
-          "Leaf yellowing and drop",
-          "Fruit spotting in severe cases"
-        ],
-        treatment: [
-          "Apply copper-based bactericides",
-          "Remove infected plant material",
-          "Improve air circulation"
-        ],
-        prevention: [
-          "Use pathogen-free seeds",
-          "Avoid working with wet plants",
-          "Rotate crops annually"
-        ],
-        recommended_products: [
-          { name: "Streptocycline", dosage: "0.5g/L", price: "₹85/10g" },
-          { name: "Copper Hydroxide", dosage: "3g/L", price: "₹140/500g" }
-        ]
-      }
-    ];
-
+  // Transform Flask API response to your UI format
+  const transformFlaskResponse = (apiResult) => {
+    const { prediction, top_predictions, image_info } = apiResult;
+    
+    // Parse disease information from your model's format
+    const disease_parts = prediction.disease.split('___');
+    const plant_type = disease_parts[0]?.replace('_', ' ').replace(/([A-Z])/g, ' $1').trim() || 'Unknown';
+    const disease_name = disease_parts[1]?.replace('_', ' ').replace(/([A-Z])/g, ' $1').trim() || prediction.disease;
+    
+    // Create detailed disease information
+    const diseaseInfo = createDiseaseInfo(plant_type, disease_name, prediction.is_healthy);
+    
     return {
-      detected_diseases: diseases,
+      detected_diseases: [
+        {
+          disease_name: prediction.is_healthy ? `${plant_type} - Healthy` : disease_name,
+          confidence: Math.round(prediction.confidence * 100),
+          severity: prediction.is_healthy ? "None" : getSeverityLevel(prediction.confidence),
+          crop_affected: plant_type,
+          description: diseaseInfo.description,
+          symptoms: diseaseInfo.symptoms,
+          treatment: diseaseInfo.treatment,
+          prevention: diseaseInfo.prevention,
+          recommended_products: diseaseInfo.products
+        }
+      ],
       analysis_summary: {
-        total_diseases_found: diseases.length,
-        primary_disease: diseases[0].disease_name,
-        overall_severity: diseases[0].severity,
-        confidence_average: Math.round(diseases.reduce((sum, d) => sum + d.confidence, 0) / diseases.length)
+        total_diseases_found: prediction.is_healthy ? 0 : 1,
+        primary_disease: prediction.is_healthy ? "No Disease Detected" : disease_name,
+        overall_severity: prediction.is_healthy ? "Healthy" : getSeverityLevel(prediction.confidence),
+        confidence_average: Math.round(prediction.confidence * 100)
       },
       image_quality: "Good",
-      processing_time: "2.3 seconds"
+      processing_time: "Real-time",
+      top_predictions: top_predictions || [],
+      original_prediction: prediction // Keep original for reference
+    };
+  };
+
+  // Determine severity based on confidence
+  const getSeverityLevel = (confidence) => {
+    if (confidence >= 0.8) return "High";
+    if (confidence >= 0.6) return "Medium";
+    return "Low";
+  };
+
+  // Create detailed disease information based on plant type and disease
+  const createDiseaseInfo = (plant_type, disease_name, is_healthy) => {
+    if (is_healthy) {
+      return {
+        description: `Your ${plant_type.toLowerCase()} plant appears to be healthy! Continue with good care practices to maintain plant health.`,
+        symptoms: [
+          "Green, vibrant foliage",
+          "No visible spots or discoloration",
+          "Normal growth patterns",
+          "Healthy leaf structure"
+        ],
+        treatment: [
+          "Continue current care routine",
+          "Monitor regularly for changes",
+          "Maintain optimal growing conditions"
+        ],
+        prevention: [
+          "Provide adequate sunlight and water",
+          "Ensure good air circulation",
+          "Regular inspection for early detection",
+          "Maintain soil health"
+        ],
+        products: [
+          { name: "Organic Fertilizer", dosage: "As per package instructions", price: "₹150/kg" },
+          { name: "Neem Oil (Preventive)", dosage: "2ml/L water", price: "₹120/100ml" }
+        ]
+      };
+    }
+
+    // Disease-specific information (you can expand this based on your model's classes)
+    const diseaseDatabase = {
+      "Apple Scab": {
+        description: "Apple scab is a fungal disease caused by Venturia inaequalis that affects apple trees, causing dark spots on leaves and fruit.",
+        symptoms: ["Dark, scabby spots on leaves", "Premature leaf drop", "Fruit lesions", "Reduced fruit quality"],
+        treatment: ["Apply fungicide sprays", "Remove infected leaves", "Improve air circulation", "Prune affected branches"],
+        prevention: ["Choose resistant varieties", "Proper spacing", "Fall cleanup", "Preventive spraying"],
+        products: [
+          { name: "Copper Fungicide", dosage: "2g/L", price: "₹180/250g" },
+          { name: "Myclobutanil", dosage: "1ml/L", price: "₹220/100ml" }
+        ]
+      },
+      "Early Blight": {
+        description: "Early blight is caused by Alternaria species and affects tomatoes and potatoes, causing dark spots with concentric rings.",
+        symptoms: ["Dark spots with target-like rings", "Yellow halos around spots", "Leaf yellowing and drop", "Stem lesions"],
+        treatment: ["Apply fungicide", "Remove infected plant parts", "Improve air circulation", "Avoid overhead watering"],
+        prevention: ["Crop rotation", "Proper spacing", "Mulching", "Resistant varieties"],
+        products: [
+          { name: "Mancozeb 75% WP", dosage: "2.5g/L", price: "₹180/500g" },
+          { name: "Chlorothalonil", dosage: "2ml/L", price: "₹240/250ml" }
+        ]
+      },
+      "Late Blight": {
+        description: "Late blight is a destructive disease caused by Phytophthora infestans affecting tomatoes and potatoes.",
+        symptoms: ["Water-soaked lesions", "White fungal growth", "Rapid leaf death", "Brown stem lesions"],
+        treatment: ["Copper-based fungicides", "Remove infected parts", "Improve drainage", "Reduce humidity"],
+        prevention: ["Use resistant varieties", "Proper ventilation", "Avoid overhead irrigation", "Weather monitoring"],
+        products: [
+          { name: "Copper Oxychloride", dosage: "3g/L", price: "₹160/500g" },
+          { name: "Metalaxyl + Mancozeb", dosage: "2g/L", price: "₹280/250g" }
+        ]
+      }
+      // Add more diseases as needed
+    };
+
+    // Return disease info or default if not found
+    return diseaseDatabase[disease_name] || {
+      description: `${disease_name} detected in ${plant_type.toLowerCase()}. Consult with agricultural experts for specific treatment recommendations.`,
+      symptoms: ["Visible disease symptoms on plant", "Abnormal leaf patterns", "Potential growth issues"],
+      treatment: ["Consult agricultural expert", "Apply appropriate treatment", "Monitor plant condition"],
+      prevention: ["Regular inspection", "Maintain plant health", "Follow good agricultural practices"],
+      products: [
+        { name: "General Fungicide", dosage: "As recommended", price: "₹200/250g" },
+        { name: "Plant Health Booster", dosage: "As per label", price: "₹150/500ml" }
+      ]
     };
   };
 
@@ -181,6 +256,20 @@ export default function DiseaseDetection() {
     setSelectedImage(null);
     setImagePreview(null);
     setResults(null);
+    setError('');
+  };
+
+  // Check API health function
+  const checkAPIHealth = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/health`);
+      const data = await response.json();
+      console.log('API Health:', data);
+      return data.model_loaded;
+    } catch (error) {
+      console.error('API Health Check Failed:', error);
+      return false;
+    }
   };
 
   return (
@@ -192,9 +281,32 @@ export default function DiseaseDetection() {
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Upload a photo of your plant's diseased leaves to get instant AI-powered disease identification and treatment recommendations
           </p>
+          
+          {/* API Status Indicator */}
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={checkAPIHealth}
+              className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200 transition"
+            >
+              🔄 Check API Status
+            </button>
+          </div>
         </div>
 
-        {/* Main Content */}
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <div className="text-red-400 mr-3">⚠️</div>
+              <div>
+                <h3 className="text-red-800 font-medium">Error</h3>
+                <p className="text-red-700 text-sm">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content - Rest of your existing UI remains the same */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Upload Section */}
           <div className="lg:col-span-2">
@@ -295,10 +407,10 @@ export default function DiseaseDetection() {
                     {isAnalyzing ? (
                       <div className="flex items-center justify-center space-x-2">
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                        <span>Analyzing Disease...</span>
+                        <span>Analyzing with AI Model...</span>
                       </div>
                     ) : (
-                      'Detect Disease'
+                      'Detect Disease with AI'
                     )}
                   </button>
                 </div>
@@ -306,7 +418,7 @@ export default function DiseaseDetection() {
             </div>
           </div>
 
-          {/* Analysis History Sidebar */}
+          {/* Analysis History Sidebar - Keep your existing code */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Recent Analyses</h3>
@@ -363,11 +475,11 @@ export default function DiseaseDetection() {
           </div>
         </div>
 
-        {/* Results Section */}
+        {/* Results Section - Keep all your existing results display code */}
         {results && (
           <div className="mt-12 bg-white rounded-xl shadow-lg p-8">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Disease Analysis Results</h2>
+              <h2 className="text-2xl font-bold text-gray-900">AI Disease Analysis Results</h2>
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-gray-500">Confidence:</span>
                 <span className="text-lg font-bold text-red-600">
@@ -376,6 +488,22 @@ export default function DiseaseDetection() {
               </div>
             </div>
 
+            {/* Show top predictions from your model */}
+            {results.top_predictions && results.top_predictions.length > 0 && (
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <h3 className="font-semibold text-gray-800 mb-3">🎯 Top Predictions from AI Model:</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {results.top_predictions.slice(0, 3).map((pred, idx) => (
+                    <div key={idx} className="bg-white p-3 rounded border">
+                      <p className="font-medium text-gray-800 text-sm">{pred.disease.replace('___', ' - ').replace(/_/g, ' ')}</p>
+                      <p className="text-xs text-blue-600 font-medium">{pred.confidence_percent}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Rest of your existing results display code... */}
             {/* Analysis Summary */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
               <div className="bg-red-50 p-4 rounded-lg text-center">
@@ -396,7 +524,7 @@ export default function DiseaseDetection() {
               </div>
             </div>
 
-            {/* Disease Details */}
+            {/* Keep all your existing disease details display code... */}
             {results.detected_diseases.map((disease, index) => (
               <div key={index} className="border border-gray-200 rounded-xl p-6 mb-6">
                 <div className="flex justify-between items-start mb-4">
@@ -408,9 +536,10 @@ export default function DiseaseDetection() {
                     <div className={`px-3 py-1 rounded-full text-sm font-medium ${
                       disease.severity === 'High' ? 'bg-red-100 text-red-800' :
                       disease.severity === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                      disease.severity === 'None' ? 'bg-green-100 text-green-800' :
                       'bg-green-100 text-green-800'
                     }`}>
-                      {disease.severity} Severity
+                      {disease.severity === 'None' ? 'Healthy' : `${disease.severity} Severity`}
                     </div>
                     <p className="text-sm text-gray-500 mt-1">{disease.confidence}% confidence</p>
                   </div>
@@ -423,12 +552,12 @@ export default function DiseaseDetection() {
                   <div>
                     <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
                       <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                      Symptoms
+                      {disease.severity === 'None' ? 'Healthy Signs' : 'Symptoms'}
                     </h4>
                     <ul className="space-y-2 text-sm text-gray-600">
                       {disease.symptoms.map((symptom, idx) => (
                         <li key={idx} className="flex items-start">
-                          <span className="text-red-400 mr-2">•</span>
+                          <span className={`${disease.severity === 'None' ? 'text-green-400' : 'text-red-400'} mr-2`}>•</span>
                           {symptom}
                         </li>
                       ))}
@@ -439,7 +568,7 @@ export default function DiseaseDetection() {
                   <div>
                     <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
                       <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                      Treatment
+                      {disease.severity === 'None' ? 'Care Tips' : 'Treatment'}
                     </h4>
                     <ul className="space-y-2 text-sm text-gray-600">
                       {disease.treatment.map((treatment, idx) => (
@@ -507,7 +636,7 @@ export default function DiseaseDetection() {
           </div>
         )}
 
-        {/* Educational Section */}
+        {/* Keep your existing Educational Section */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-lg">
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
@@ -515,7 +644,7 @@ export default function DiseaseDetection() {
             </div>
             <h3 className="text-lg font-semibold mb-2">AI-Powered Detection</h3>
             <p className="text-gray-600 text-sm">
-              Our advanced machine learning models can identify over 50+ plant diseases with 95% accuracy using state-of-the-art computer vision.
+              Our advanced machine learning models can identify 38+ plant diseases with high accuracy using your trained TensorFlow model.
             </p>
           </div>
           <div className="bg-white p-6 rounded-xl shadow-lg">
