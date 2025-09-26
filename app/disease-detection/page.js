@@ -14,7 +14,7 @@ export default function DiseaseDetection() {
   const [error, setError] = useState('');
   
   // Flask API configuration
-  const API_BASE_URL = 'http://localhost:5001'; // Your Flask API URL
+  const API_BASE_URL = 'https://plant-disease-detection-0eo6.onrender.com'; // Your Flask API URL
 
   // Handle file selection
   const handleFileSelect = (file) => {
